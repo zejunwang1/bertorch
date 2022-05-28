@@ -141,7 +141,7 @@ CLUEbenchmark 数据集链接： https://github.com/CLUEbenchmark/CLUE
 
 ## 3. 文本匹配
 
-本项目展示了如何基于 Sentence-BERT 结构 Finetune 完成中文文本匹配任务。Sentence BERT 采用了双塔 (Siamese) 的网络结构。Query 和 Title 分别输入到两个共享参数的 bert encoder 中，得到各自的 token embedding 特征。然后对 token embedding 进行 pooling (论文中使用 mean pooling 操作)，输出分别记作 u 和 v。最后将三个向量 (u,v,|u-v|) 拼接起来输入到线性分类器中进行分类。网络结构如下图所示：
+本项目展示了如何基于 Sentence-BERT 结构 Finetune 完成中文文本匹配任务。Sentence BERT 采用了双塔 (Siamese) 的网络结构。Query 和 Title 分别输入到两个共享参数的 bert encoder 中，得到各自的 token embedding 特征。然后对 token embedding 进行 pooling (论文中使用 mean pooling 操作)，输出分别记作 u 和 v。最后将三个向量 (u,v,|u-v|) 拼接起来输入到线性分类器中进行分类。
 
 更多关于 Sentence-BERT 的信息可以参考论文： https://arxiv.org/abs/1908.10084
 
@@ -442,3 +442,9 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node=2 r
 | BERT+CRF | 0.94265 | 0.95818 | 0.80257 | 0.72215 |
 
 其中 Msra、Resume 和 Ontonote 训练了 3 个 epochs，Weibo 训练了 5 个 epochs，Resume、Ontonote 和 Weibo 的 logging_steps 和 save_steps 均设置为 10，所有数据集的 BERT 参数初始学习率设置为 5e-5，CRF 参数初始学习率设置为 1e-4，batch_size 设置为 32。
+
+## 6. Contact
+
+邮箱： wangzejunscut@126.com
+
+微信：autonlp
