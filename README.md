@@ -350,7 +350,7 @@ usage: run_batchneg.py [-h] [--local_rank LOCAL_RANK]
 ......
 ```
 
-以上面得到的模型为热启，在科研句子数据集 data/batchneg/domain_finetune.txt 上继续进行 In-batch negatives 训练：
+以上面得到的模型为热启，在句子数据集 data/batchneg/domain_finetune.txt 上继续进行 In-batch negatives 训练：
 
 ```shell
 CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node=2 run_batchneg.py --pretrained_model_name_or_path uer/chinese_roberta_L-6_H-128 --init_from_ckpt ./checkpoint/pytorch_model.bin --train_data_file ./data/batchneg/domain_finetune.txt --dev_data_file ./data/STS-B/sts-b-dev.txt --learning_rate 1e-5 --epochs 1 --margin 0.2 --scale 20 --batch_size 32 --mean_loss
