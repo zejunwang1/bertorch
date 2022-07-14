@@ -207,7 +207,7 @@ class BatchNegDataset(Dataset):
         ]
 
 
-class PairWithLabelDataset:
+class PairWithLabelDataset(Dataset):
     def __init__(
         self, texts, tokenizer, max_seq_length: int = 512
     ):
