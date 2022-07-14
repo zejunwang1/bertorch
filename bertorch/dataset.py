@@ -129,7 +129,7 @@ def read_ner_samples(
 
 class ClasDataset(Dataset):
     def __init__(
-        self, texts: Union[List[str], List[Tuple[str]]], labels: List[int], tokenizer, max_seq_length: int = 512
+        self, texts: Union[List[str], List[Tuple[str, str]]], labels: List[int], tokenizer, max_seq_length: int = 512
     ):
         self.data = tokenizer(texts, truncation=True, max_length=max_seq_length)
         self.labels = labels
@@ -179,7 +179,7 @@ class SimcseDataset(Dataset):
 
 class BatchNegDataset(Dataset):
     def __init__(
-        self, texts: List[Tuple[str]], tokenizer, max_seq_length: int = 512
+        self, texts: List[Tuple[str, str]], tokenizer, max_seq_length: int = 512
     ):
         text_a_list = [_[0] for _ in texts]
         text_b_list = [_[1] for _ in texts]
