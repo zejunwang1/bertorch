@@ -67,6 +67,12 @@ def parse_args():
         help="Batch size per GPU/CPU for training."
     )
     parser.add_argument(
+        "--gradient_accumulation_steps",
+        default=1,
+        type=int,
+        help="Number of updates steps to accumulate before performing a backward/update pass."
+    )
+    parser.add_argument(
         "--scheduler",
         choices=["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"],
         default="linear",
@@ -258,7 +264,8 @@ def train(args):
             )
         
     # preparation before training
-    num_training_steps = len(train_dataloader) * args.epochs
+    num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
+    num_training_steps = num_update_steps_per_epoch * args.epochs
     warmup_steps = math.ceil(num_training_steps * args.warmup_proportion)
     param_optimizer = list(model.named_parameters())
     no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
@@ -285,11 +292,10 @@ def train(args):
     saved_model_file = os.path.join(args.saved_dir, "pytorch_model.bin")
     
     model.train()
+    optimizer.zero_grad()
     tic_train = time.time()
     for epoch in range(1, args.epochs + 1):
         for step, batch in enumerate(train_dataloader, start=1):
-            model.zero_grad()
-            
             input_ids, token_type_ids, attention_mask = batch
             input_ids = input_ids.to(device)
             token_type_ids = token_type_ids.to(device)
@@ -303,40 +309,45 @@ def train(args):
             if n_gpu > 1 and args.local_rank == -1:
                 loss = torch.mean(loss)
             
+            loss_value = loss.item()
+            loss = loss / args.gradient_accumulation_steps
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-            optimizer.step()
-            scheduler.step()
             
-            global_step += 1
-            if global_step % args.logging_steps == 0 and (args.local_rank == -1 or args.local_rank == 0):
-                time_diff = time.time() - tic_train
-                logger.info("global step: %d, epoch: %d, batch: %d, loss: %.5f, speed: %.2f step/s"
-                            % (global_step, epoch, step, loss, args.logging_steps / time_diff))
-                tic_train = time.time()
-            
-            if global_step % args.save_steps == 0 and (args.local_rank == -1 or args.local_rank == 0):
-                if args.dev_data_file:
-                    spearman_corr, pearson_corr = evaluate(model, dev_dataloader, device)
-                    logger.info("spearman corr: %.4f, pearson corr: %.4f" % (spearman_corr, pearson_corr))
-                    if args.save_best_model:
-                        if best_metrics < spearman_corr:
-                            best_metrics = spearman_corr
-                            tokenizer.save_pretrained(args.saved_dir, save_tokenizer_config=True)
-                            if n_gpu > 1:
-                                torch.save(model.module.state_dict(), saved_model_file)
-                            else:
-                                torch.save(model.state_dict(), saved_model_file)
-                        tic_train = time.time()
-                        continue
+            if step % args.gradient_accumulation_steps == 0 or step == len(train_dataloader):
+                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                optimizer.step()
+                scheduler.step()
+                optimizer.zero_grad()
+                
+                global_step += 1
+                if global_step % args.logging_steps == 0 and (args.local_rank == -1 or args.local_rank == 0):
+                    time_diff = time.time() - tic_train
+                    logger.info("global step: %d, epoch: %d, batch: %d, loss: %.5f, speed: %.2f step/s"
+                                % (global_step, epoch, step, loss_value, args.logging_steps / time_diff))
+                    tic_train = time.time()
+                
+                if global_step % args.save_steps == 0 and (args.local_rank == -1 or args.local_rank == 0):
+                    if args.dev_data_file:
+                        spearman_corr, pearson_corr = evaluate(model, dev_dataloader, device)
+                        logger.info("spearman corr: %.4f, pearson corr: %.4f" % (spearman_corr, pearson_corr))
+                        if args.save_best_model:
+                            if best_metrics < spearman_corr:
+                                best_metrics = spearman_corr
+                                tokenizer.save_pretrained(args.saved_dir, save_tokenizer_config=True)
+                                if n_gpu > 1:
+                                    torch.save(model.module.state_dict(), saved_model_file)
+                                else:
+                                    torch.save(model.state_dict(), saved_model_file)
+                            tic_train = time.time()
+                            continue
 
-                tokenizer.save_pretrained(args.saved_dir, save_tokenizer_config=True)
-                if n_gpu > 1:
-                    torch.save(model.module.state_dict(), saved_model_file)
-                else:
-                    torch.save(model.state_dict(), saved_model_file)
-                tic_train = time.time()
-                            
+                    tokenizer.save_pretrained(args.saved_dir, save_tokenizer_config=True)
+                    if n_gpu > 1:
+                        torch.save(model.module.state_dict(), saved_model_file)
+                    else:
+                        torch.save(model.state_dict(), saved_model_file)
+                    tic_train = time.time()
+
 
 @torch.no_grad()
 def evaluate(model, dataloader, device):
